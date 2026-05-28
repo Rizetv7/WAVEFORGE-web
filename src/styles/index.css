@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #03050a;
+  color: #e8f4ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 1100px;
+  overflow-x: auto;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(56, 246, 255, 0.12), transparent 32%),
+    radial-gradient(circle at 80% 8%, rgba(163, 107, 255, 0.12), transparent 34%),
+    linear-gradient(145deg, #05070d 0%, #080b13 45%, #02030a 100%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  user-select: none;
+}
+
+input[type="range"] {
+  accent-color: #38f6ff;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0f17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #273348;
+  border-radius: 999px;
+}
+
+.glass-panel {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.01)),
+    rgba(12, 16, 24, 0.92);
+  border: 1px solid rgba(98, 126, 160, 0.22);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.precision-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.knob-ring {
+  touch-action: none;
+}
