@@ -11,6 +11,8 @@ import type {
   SynthState,
 } from "../types";
 import { clamp, getAtPath } from "../utils/object";
+import type { DawExportOptions } from "./export";
+import { renderDawWav } from "./export";
 import { createWave, lfoValueAt } from "./wavetables";
 import { encodeWav } from "./wav";
 
@@ -249,6 +251,10 @@ class WaveForgeEngine {
     return encodeWav(this.recordLeft, this.recordRight, this.ctx.sampleRate);
   }
 
+  exportDawWav(state: SynthState, options: DawExportOptions) {
+    return renderDawWav(state, this.samples, options);
+  }
+
   private createVoice(ctx: AudioContext, note: number, velocity: number, state: SynthState): Voice {
     const id = `${note}-${performance.now()}-${Math.random()}`;
     const output = ctx.createGain();
@@ -476,6 +482,10 @@ class WaveForgeEngine {
     return base + sum;
   }
 
+  private effectValue(effect: EffectConfig, key: string, fallback: number, min = -Number.MAX_VALUE, max = Number.MAX_VALUE) {
+    return clamp(this.modulated(`effects.${effect.id}.${key}`, numberParam(effect, key, fallback)), min, max);
+  }
+
   private modulationTick() {
     if (!this.ctx || !this.state) return;
     this.voices.forEach((voice) => this.updateVoice(voice));
@@ -530,10 +540,10 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          const mix = clamp(numberParam(fx, "mix", 0.35));
+          const mix = this.effectValue(fx, "mix", 0.35, 0, 1);
           dry.gain.setTargetAtTime(1 - mix, ctx.currentTime, 0.02);
           wet.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
-          shaper.curve = makeCurve(numberParam(fx, "drive", 0.35), modeParam(fx, "mode", "Tube"));
+          shaper.curve = makeCurve(this.effectValue(fx, "drive", 0.35, 0, 1), modeParam(fx, "mode", "Tube"));
           shaper.oversample = "4x";
         },
       };
@@ -557,13 +567,13 @@ class WaveForgeEngine {
         output,
         update: (fx) => {
           const flanger = fx.type === "Flanger";
-          const mix = clamp(numberParam(fx, "mix", flanger ? 0.18 : 0.26));
+          const mix = this.effectValue(fx, "mix", flanger ? 0.18 : 0.26, 0, 1);
           dry.gain.setTargetAtTime(1 - mix, ctx.currentTime, 0.02);
           wet.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
           delay.delayTime.setTargetAtTime(flanger ? 0.004 : 0.018, ctx.currentTime, 0.02);
-          feedback.gain.setTargetAtTime(flanger ? numberParam(fx, "feedback", 0.18) : 0.05, ctx.currentTime, 0.02);
-          lfo.frequency.setTargetAtTime(numberParam(fx, "rate", flanger ? 0.18 : 0.28), ctx.currentTime, 0.02);
-          depth.gain.setTargetAtTime(numberParam(fx, "depth", 0.32) * (flanger ? 0.004 : 0.014), ctx.currentTime, 0.02);
+          feedback.gain.setTargetAtTime(flanger ? this.effectValue(fx, "feedback", 0.18, 0, 0.96) : 0.05, ctx.currentTime, 0.02);
+          lfo.frequency.setTargetAtTime(this.effectValue(fx, "rate", flanger ? 0.18 : 0.28, 0.01, 8), ctx.currentTime, 0.02);
+          depth.gain.setTargetAtTime(this.effectValue(fx, "depth", 0.32, 0, 1) * (flanger ? 0.004 : 0.014), ctx.currentTime, 0.02);
         },
         dispose: () => lfo.stop(),
       };
@@ -591,11 +601,11 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          const mix = clamp(numberParam(fx, "mix", 0.22));
+          const mix = this.effectValue(fx, "mix", 0.22, 0, 1);
           dry.gain.setTargetAtTime(1 - mix, ctx.currentTime, 0.02);
           wet.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
-          lfo.frequency.setTargetAtTime(numberParam(fx, "rate", 0.2), ctx.currentTime, 0.02);
-          depth.gain.setTargetAtTime(numberParam(fx, "depth", 0.4) * 900, ctx.currentTime, 0.02);
+          lfo.frequency.setTargetAtTime(this.effectValue(fx, "rate", 0.2, 0.01, 8), ctx.currentTime, 0.02);
+          depth.gain.setTargetAtTime(this.effectValue(fx, "depth", 0.4, 0, 1) * 900, ctx.currentTime, 0.02);
         },
         dispose: () => lfo.stop(),
       };
@@ -609,8 +619,8 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          compressor.threshold.setTargetAtTime(numberParam(fx, "threshold", -18), ctx.currentTime, 0.02);
-          compressor.ratio.setTargetAtTime(numberParam(fx, "ratio", 2.5), ctx.currentTime, 0.02);
+          compressor.threshold.setTargetAtTime(this.effectValue(fx, "threshold", -18, -60, 0), ctx.currentTime, 0.02);
+          compressor.ratio.setTargetAtTime(this.effectValue(fx, "ratio", 2.5, 1, 20), ctx.currentTime, 0.02);
           compressor.attack.setTargetAtTime(0.008, ctx.currentTime, 0.02);
           compressor.release.setTargetAtTime(0.16, ctx.currentTime, 0.02);
         },
@@ -633,9 +643,9 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          low.gain.setTargetAtTime(numberParam(fx, "low", 0), ctx.currentTime, 0.02);
-          mid.gain.setTargetAtTime(numberParam(fx, "mid", 0), ctx.currentTime, 0.02);
-          high.gain.setTargetAtTime(numberParam(fx, "high", 0), ctx.currentTime, 0.02);
+          low.gain.setTargetAtTime(this.effectValue(fx, "low", 0, -12, 12), ctx.currentTime, 0.02);
+          mid.gain.setTargetAtTime(this.effectValue(fx, "mid", 0, -12, 12), ctx.currentTime, 0.02);
+          high.gain.setTargetAtTime(this.effectValue(fx, "high", 0, -12, 12), ctx.currentTime, 0.02);
         },
       };
     }
@@ -655,14 +665,14 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx, synth) => {
-          const baseTime = numberParam(fx, "time", 0.32);
+          const baseTime = this.effectValue(fx, "time", 0.32, 0.03, 1.8);
           const time = synth.sequencer.sync ? 60 / synth.sequencer.bpm : baseTime;
-          const modMix = this.modulated("effects.fx-delay.mix", numberParam(fx, "mix", 0.22));
+          const modMix = this.effectValue(fx, "mix", 0.22, 0, 1);
           dry.gain.setTargetAtTime(1 - modMix * 0.72, ctx.currentTime, 0.02);
           wet.gain.setTargetAtTime(modMix, ctx.currentTime, 0.02);
-          delay.delayTime.setTargetAtTime(clamp(baseTime || time, 0.03, 1.8), ctx.currentTime, 0.02);
-          feedback.gain.setTargetAtTime(clamp(numberParam(fx, "feedback", 0.28), 0, 0.88), ctx.currentTime, 0.02);
-          filter.frequency.setTargetAtTime(numberParam(fx, "filter", 5200), ctx.currentTime, 0.02);
+          delay.delayTime.setTargetAtTime(clamp(time, 0.03, 1.8), ctx.currentTime, 0.02);
+          feedback.gain.setTargetAtTime(this.effectValue(fx, "feedback", 0.28, 0, 0.88), ctx.currentTime, 0.02);
+          filter.frequency.setTargetAtTime(this.effectValue(fx, "filter", 5200, 400, 16000), ctx.currentTime, 0.02);
         },
       };
     }
@@ -680,9 +690,9 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          const mix = this.modulated("effects.fx-reverb.mix", numberParam(fx, "mix", 0.2));
-          const decay = numberParam(fx, "decay", 2.2);
-          const size = numberParam(fx, "size", 0.58);
+          const mix = this.effectValue(fx, "mix", 0.2, 0, 1);
+          const decay = this.effectValue(fx, "decay", 2.2, 0.3, 8);
+          const size = this.effectValue(fx, "size", 0.58, 0, 1);
           const key = `${decay.toFixed(2)}:${size.toFixed(2)}`;
           if (key !== impulseKey) {
             impulseKey = key;
@@ -690,7 +700,7 @@ class WaveForgeEngine {
           }
           dry.gain.setTargetAtTime(1 - mix * 0.6, ctx.currentTime, 0.02);
           wet.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
-          predelay.delayTime.setTargetAtTime(numberParam(fx, "predelay", 0.018), ctx.currentTime, 0.02);
+          predelay.delayTime.setTargetAtTime(this.effectValue(fx, "predelay", 0.018, 0, 0.2), ctx.currentTime, 0.02);
         },
       };
     }
@@ -707,11 +717,11 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          const mix = clamp(numberParam(fx, "mix", 0.3));
+          const mix = this.effectValue(fx, "mix", 0.3, 0, 1);
           dry.gain.setTargetAtTime(1 - mix, ctx.currentTime, 0.02);
           wet.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
-          filter.frequency.setTargetAtTime(numberParam(fx, "cutoff", 2400), ctx.currentTime, 0.02);
-          filter.Q.setTargetAtTime(numberParam(fx, "resonance", 0.4) * 18, ctx.currentTime, 0.02);
+          filter.frequency.setTargetAtTime(this.effectValue(fx, "cutoff", 2400, 80, 14000), ctx.currentTime, 0.02);
+          filter.Q.setTargetAtTime(this.effectValue(fx, "resonance", 0.4, 0, 1) * 18, ctx.currentTime, 0.02);
         },
       };
     }
@@ -728,7 +738,7 @@ class WaveForgeEngine {
         input,
         output,
         update: (fx) => {
-          const width = clamp(numberParam(fx, "width", 0.72));
+          const width = this.effectValue(fx, "width", 0.72, 0, 1);
           panLeft.pan.setTargetAtTime(-width, ctx.currentTime, 0.02);
           panRight.pan.setTargetAtTime(width, ctx.currentTime, 0.02);
           leftGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.02);

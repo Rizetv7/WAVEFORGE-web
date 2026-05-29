@@ -24,6 +24,7 @@ npm run build
 - Modulation: Macro-, ENV- oder LFO-Quelle aus dem Sources-Panel auf einen Regler ziehen.
 - Matrix: Modulationsrouten direkt im `MATRIX`-Tab bearbeiten.
 - Presets: Factory-Presets laden, eigene Presets speichern, duplizieren, importieren und als JSON exportieren.
+- DAW-Export: Im `PRESETS`-Tab den aktuellen Patch als WAV rendern, wahlweise als Logic-Pro-Profil mit 48 kHz / 24 Bit oder als universelles 44,1 kHz / 16-Bit-WAV.
 - WAV-Aufnahme: `Record` in der Toolbar startet eine Browser-Aufnahme, erneutes Klicken exportiert eine WAV-Datei.
 - Samples: WAV/Audio-Datei in einem OSC-Modul importieren und im Sample/Granular-Modus verwenden.
 
@@ -42,12 +43,13 @@ npm run build
 - Web MIDI API mit Geräteauswahl, Note On/Off, Mod Wheel, Aftertouch und Pitch Bend.
 - Echtzeit-Oszilloskop, Frequenzspektrum, Oszillator-Wellenformen, Filterkurven, LFO- und Envelope-Visuals.
 - Preset-System mit 20 Factory-Presets, Suche, Kategorien, Save, Duplicate, Delete für Custom-Presets, Import/Export JSON.
+- Offline-Render-Export für Logic Pro und andere DAWs mit Note-, Chord- und Sequence-Render-Modus.
 - Browser-WAV-Recording der Performance.
 - Modularer Aufbau mit separater Audio-Engine und React-Komponenten.
 
 ## Architekturhinweis für Logic Pro
 
-Eine reine Website kann nicht direkt als Instrument in Logic Pro geladen werden. Für Logic wäre später eine native AUv3- oder Audio-Unit-Version nötig, zum Beispiel mit JUCE oder einer ähnlichen Plugin-Technologie.
+Eine reine Website kann nicht direkt als Instrument in Logic Pro geladen werden. Der neue DAW-Export erstellt deshalb eine WAV-Datei, die in Logic Pro, Ableton Live, FL Studio, Cubase, Pro Tools und ähnliche DAWs importiert werden kann. Für eine echte ladbare Logic-Version wäre später eine native AUv3- oder Audio-Unit-Version nötig, zum Beispiel mit JUCE oder einer ähnlichen Plugin-Technologie.
 
 Die Browser-Version dient als funktionsfähiger Prototyp und als Grundlage für Design, Bedienlogik und Sound-Engine-Konzepte. Für eine echte Logic-Pro-Version fehlen noch:
 

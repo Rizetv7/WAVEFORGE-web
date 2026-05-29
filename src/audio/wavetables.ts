@@ -117,10 +117,28 @@ export const lfoValueAt = (lfo: LfoConfig, time: number, bpm: number) => {
     case "Custom": {
       if (lfo.points.length < 2) return 0;
       const points = [...lfo.points].sort((a, b) => a.x - b.x);
-      const nextIndex = points.findIndex((point) => point.x >= phase);
-      const left = points[Math.max(0, nextIndex - 1)] ?? points[0];
-      const right = points[nextIndex === -1 ? points.length - 1 : nextIndex];
-      const t = right.x === left.x ? 0 : (phase - left.x) / (right.x - left.x);
+      let left = points[0];
+      let right = points[1];
+      let leftX = left.x;
+      let rightX = right.x;
+      if (phase < points[0].x) {
+        left = points[points.length - 1];
+        right = points[0];
+        leftX = left.x - 1;
+        rightX = right.x;
+      } else if (phase > points[points.length - 1].x) {
+        left = points[points.length - 1];
+        right = points[0];
+        leftX = left.x;
+        rightX = right.x + 1;
+      } else {
+        const nextIndex = Math.max(1, points.findIndex((point) => point.x >= phase));
+        left = points[nextIndex - 1];
+        right = points[nextIndex];
+        leftX = left.x;
+        rightX = right.x;
+      }
+      const t = rightX === leftX ? 0 : (phase - leftX) / (rightX - leftX);
       return (left.y + (right.y - left.y) * clamp(t)) * 2 - 1;
     }
     default:

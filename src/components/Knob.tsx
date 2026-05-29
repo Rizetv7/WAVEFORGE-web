@@ -25,6 +25,7 @@ const sourceColor: Record<string, string> = {
 interface KnobProps {
   label: string;
   path: string;
+  modPath?: string;
   value: number;
   min?: number;
   max?: number;
@@ -51,6 +52,7 @@ const modGradient = (assignments: ModAssignment[]) => {
 export const Knob = ({
   label,
   path,
+  modPath,
   value,
   min = 0,
   max = 1,
@@ -63,7 +65,8 @@ export const Knob = ({
   const { state, setParam, dispatch } = useSynth();
   const [dragging, setDragging] = useState(false);
   const start = useRef({ y: 0, value: 0 });
-  const assignments = state.modMatrix.filter((mod) => mod.destination === path);
+  const destinationPath = modPath ?? path;
+  const assignments = state.modMatrix.filter((mod) => mod.destination === destinationPath);
   const pct = clamp((value - min) / (max - min));
   const angle = -135 + pct * 270;
   const px = size === "lg" ? 74 : size === "sm" ? 48 : 60;
@@ -91,7 +94,7 @@ export const Knob = ({
           type: "ADD_MOD",
           assignment: {
             source,
-            destination: path,
+            destination: destinationPath,
             amount: bipolar ? 0.18 : 0.24,
             curve: "Linear",
             polarity: bipolar ? "Bipolar" : "Unipolar",

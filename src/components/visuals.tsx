@@ -156,6 +156,11 @@ export const LfoCanvas = ({
   bpm: number;
 }) => {
   const ref = useRef<HTMLCanvasElement | null>(null);
+  const activePoint = useRef<number | null>(null);
+  const workingPoints = useRef<LfoConfig["points"]>(lfo.points);
+  useEffect(() => {
+    workingPoints.current = lfo.points;
+  }, [lfo.points]);
   useEffect(() => {
     let raf = 0;
     const draw = () => {
@@ -212,10 +217,42 @@ export const LfoCanvas = ({
         const rect = canvas.getBoundingClientRect();
         const x = (event.clientX - rect.left) / rect.width;
         const y = (event.clientY - rect.top) / rect.height;
-        const points = [...lfo.points, { x, y }]
+        const existing = workingPoints.current.findIndex((point) => Math.hypot((point.x - x) * rect.width, (point.y - y) * rect.height) < 12);
+        const rawPoints = existing >= 0 ? [...workingPoints.current] : [...workingPoints.current, { x, y }];
+        const targetIndex = existing >= 0 ? existing : rawPoints.length - 1;
+        rawPoints[targetIndex] = { x, y };
+        const clampedX = Math.max(0, Math.min(1, x));
+        const clampedY = Math.max(0, Math.min(1, y));
+        const points = rawPoints
           .sort((a, b) => a.x - b.x)
           .map((point) => ({ x: Math.max(0, Math.min(1, point.x)), y: Math.max(0, Math.min(1, point.y)) }));
+        activePoint.current = points.reduce((nearest, point, index) => {
+          const distance = Math.hypot(point.x - clampedX, point.y - clampedY);
+          return distance < nearest.distance ? { index, distance } : nearest;
+        }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
+        workingPoints.current = points;
+        canvas.setPointerCapture(event.pointerId);
         onChange(points, "Custom");
+      }}
+      onPointerMove={(event) => {
+        if (!onChange || activePoint.current === null) return;
+        const canvas = event.currentTarget;
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+        const points = [...workingPoints.current];
+        points[activePoint.current] = { x, y };
+        const sorted = points.sort((a, b) => a.x - b.x);
+        activePoint.current = sorted.findIndex((point) => point.x === x && point.y === y);
+        workingPoints.current = sorted;
+        onChange(sorted, "Custom");
+      }}
+      onPointerUp={(event) => {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        activePoint.current = null;
+      }}
+      onPointerCancel={() => {
+        activePoint.current = null;
       }}
     />
   );

@@ -1,5 +1,7 @@
-import { Copy, Download, Heart, Search, Trash2, Upload } from "lucide-react";
+import { Copy, Download, FileAudio, Heart, Search, Trash2, Upload } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { audioEngine } from "../audio/engine";
+import type { DawExportMode, DawExportOptions } from "../audio/export";
 import { presetCategories } from "../data/presets";
 import type { PresetCategory, SynthPreset } from "../types";
 import { useSynth } from "../state/SynthContext";
@@ -15,12 +17,26 @@ const downloadJson = (name: string, data: unknown) => {
   URL.revokeObjectURL(url);
 };
 
+const downloadBlob = (name: string, blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const safeName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "waveforge";
+
 export const PresetBrowser = ({ compact = false }: { compact?: boolean }) => {
   const { state, presets, loadPreset, savePreset, dispatch } = useSynth();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<PresetCategory | "All">("All");
   const [name, setName] = useState("");
   const [saveCategory, setSaveCategory] = useState<PresetCategory>("Bass");
+  const [exportMode, setExportMode] = useState<"Note" | "Chord" | "Sequence">("Note");
+  const [exportProfile, setExportProfile] = useState<"Logic Pro WAV" | "Universal WAV">("Logic Pro WAV");
+  const [exporting, setExporting] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const filtered = useMemo(() => {
@@ -38,6 +54,28 @@ export const PresetBrowser = ({ compact = false }: { compact?: boolean }) => {
     const parsed = JSON.parse(text) as SynthPreset | SynthPreset[];
     const items = Array.isArray(parsed) ? parsed : [parsed];
     items.forEach((preset) => dispatch({ type: "DUPLICATE_PRESET", preset: { ...preset, id: preset.id ?? "imported" } }));
+  };
+
+  const exportDaw = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const profile = exportProfile === "Logic Pro WAV" ? { sampleRate: 48000 as const, bitDepth: 24 as const } : { sampleRate: 44100 as const, bitDepth: 16 as const };
+      const options: DawExportOptions = {
+        ...profile,
+        mode: exportMode.toLowerCase() as DawExportMode,
+        note: 48,
+        velocity: 0.86,
+        duration: 4,
+        bars: 4,
+        tail: 2.4,
+      };
+      const blob = await audioEngine.exportDawWav(state, options);
+      const suffix = exportProfile === "Logic Pro WAV" ? "logic-48k-24bit" : "universal-44k-16bit";
+      downloadBlob(`waveforge-${safeName(active?.name ?? "current-patch")}-${exportMode.toLowerCase()}-${suffix}.wav`, blob);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -87,6 +125,19 @@ export const PresetBrowser = ({ compact = false }: { compact?: boolean }) => {
               }}
             />
           </div>
+          {!compact && (
+            <div className="grid gap-2 rounded border border-white/10 bg-black/20 p-2">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <FileAudio size={13} />
+                DAW Export
+              </div>
+              <MiniSelect value={exportProfile} options={["Logic Pro WAV", "Universal WAV"]} onChange={(value) => setExportProfile(value as "Logic Pro WAV" | "Universal WAV")} label="Profile" />
+              <MiniSelect value={exportMode} options={["Note", "Chord", "Sequence"]} onChange={(value) => setExportMode(value as "Note" | "Chord" | "Sequence")} label="Render" />
+              <MiniButton active={exporting} onClick={() => void exportDaw()}>
+                {exporting ? "Rendering" : "Export WAV"}
+              </MiniButton>
+            </div>
+          )}
         </div>
         <div className={compact ? "max-h-64 overflow-auto rounded border border-white/10" : "max-h-[520px] overflow-auto rounded border border-white/10"}>
           {filtered.map((preset) => {
